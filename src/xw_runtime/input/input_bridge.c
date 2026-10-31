@@ -428,6 +428,8 @@ static bool HasTextEntry(Input* list) {
 	return false;
 }
 
+bool XwInput_TextEntryActive(void) { return view_gbl && HasTextEntry(xinput_Get_Active_Input_List()); }
+
 bool XwInput_SettingsShortcutAllowed(void) {
 	if (view_gbl && (xdialog_Is_Active_Dialog() || HasTextEntry(xinput_Get_Active_Input_List())))
 		return false;

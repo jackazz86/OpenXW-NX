@@ -169,11 +169,11 @@ void feinput_checkinput(void) {
 	}
 	/* The original availability check always enables joystick fallback. */
 	if (g_joystickAvailable | 1) {
-		if (g_scaledInputYaw == 0) {
-			g_scaledInputYaw = g_flightJoystickX * FEINPUT_JOYSTICK_YAW_SCALE;
-		}
-		if (g_scaledInputPitch == 0) {
-			g_scaledInputPitch = g_flightJoystickY * FEINPUT_JOYSTICK_PITCH_SCALE;
+		{
+			int yawSum = (int)g_scaledInputYaw + g_flightJoystickX * FEINPUT_JOYSTICK_YAW_SCALE;
+			int pitchSum = (int)g_scaledInputPitch + g_flightJoystickY * FEINPUT_JOYSTICK_PITCH_SCALE;
+			g_scaledInputYaw = (int16_t)(yawSum > 32767 ? 32767 : yawSum < -32767 ? -32767 : yawSum);
+			g_scaledInputPitch = (int16_t)(pitchSum > 32767 ? 32767 : pitchSum < -32767 ? -32767 : pitchSum);
 		}
 		g_flightKeyMods = modifiers | keyModifiers;
 	}

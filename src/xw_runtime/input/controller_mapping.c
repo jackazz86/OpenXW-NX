@@ -26,6 +26,8 @@ static struct {
 	bool pending_options, suspended, present, throttle_valid;
 	int axes[3], menu_axes[3];
 	uint16_t holds[XW_INPUT_ACTION_COUNT], throttle;
+	float ramp_axis;
+	bool ramp_valid;
 	uint8_t menu_buttons, menu_hat, pending_buttons, observed_buttons;
 	uint32_t throttle_instance, generation;
 	uint16_t queue[ACTION_QUEUE_CAPACITY];
@@ -287,7 +289,11 @@ static void SampleAnalog(size_t index, const AeronControllerSnapshot* device) {
 		if (!Aeron_ControllerAxisAvailable(device, binding.source))
 			continue;
 		int16_t raw = Aeron_ControllerAxisValue(device, binding.source);
-		if (axis == XW_INPUT_AXIS_THROTTLE) {
+		if (axis == XW_INPUT_AXIS_THROTTLE && model->kind == AERON_CONTROLLER_KIND_GAMEPAD &&
+			binding.source >= AERON_GAMEPAD_AXIS_LEFTX && binding.source <= AERON_GAMEPAD_AXIS_RIGHTY) {
+			g_controller.ramp_axis = ((float)raw / 32768.0f) * (binding.invert ? -1.0f : 1.0f);
+			g_controller.ramp_valid = true;
+		} else if (axis == XW_INPUT_AXIS_THROTTLE) {
 			g_controller.throttle =
 				XwControllerMapping_ThrottlePosition(raw, model->kind, binding.source, binding.invert);
 			g_controller.throttle_valid = true;
@@ -298,7 +304,8 @@ static void SampleAnalog(size_t index, const AeronControllerSnapshot* device) {
 		} else {
 			float normalized = (float)raw / 32768;
 			int value = fabsf(normalized) > binding.deadzone ? (int)(normalized * 127) : 0;
-			g_controller.menu_axes[axis] = binding.invert ? -value : value;
+			g_controller.menu_axes[axis] =
+				XwControllerOptions_EffectiveAxisInvert(model->kind, (XwInputAxis)axis, false) ? -value : value;
 			g_controller.axes[axis] =
 				XwControllerOptions_EffectiveAxisInvert(model->kind, (XwInputAxis)axis, binding.invert)
 					? -value
@@ -319,6 +326,7 @@ void XwControllerMapping_Update(const AeronInputSnapshot* input) {
 		XwControllerMapping_Resume();
 	g_controller.present = false;
 	g_controller.throttle_valid = false;
+	g_controller.ramp_valid = false;
 	memset(g_controller.axes, 0, sizeof g_controller.axes);
 	memset(g_controller.menu_axes, 0, sizeof g_controller.menu_axes);
 	g_controller.menu_buttons = g_controller.menu_hat = 0;
@@ -429,4 +437,9 @@ void XwControllerMapping_ReleaseCommands(void) {
 			state->armed[j] = !state->down[j];
 		}
 	}
+}
+
+bool XwControllerMapping_ThrottleRamp(float* axis) {
+	*axis = g_controller.ramp_axis;
+	return g_controller.ramp_valid;
 }

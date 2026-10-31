@@ -1,4 +1,5 @@
 #include "xw/frontend/shellext.h"
+#include <aeron/log.h>
 #ifdef XW_MODERN
 #include "xw_dos94/frontend/sound_preferences.h"
 #endif
@@ -1238,6 +1239,8 @@ void shellext_DetectInstalledContent(void) {
 #else
 			marker = xfile_Open_File(LANDRU_FILE_ROOT_ASSET, markerPath, "r");
 #endif
+			Aeron_LogInfo("xw.tour", "%s: %s (version %d)", markerPath, marker ? "found" : "missing",
+						  (int)version);
 			if (marker) {
 				g_availableTours[markerIndex] = 1;
 				xfile_Close_File(marker);

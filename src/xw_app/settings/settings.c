@@ -201,7 +201,7 @@ bool XwSettingsMenu_BeginFrame(const AeronInputSnapshot* input) {
 			XwSettingsMenu_RequestClose();
 		else if (!menu.open && !was_open && XwInput_SettingsShortcutAllowed()) {
 			int key = XwKeyboardMapping_Trigger(input, XW_KEYBOARD_SHORTCUT_SETTINGS);
-			if ((key >= 0 && !XwInput_KeyBlocked(key)) || (start && !XwFlightSim_IsActive())) {
+			if ((key >= 0 && !XwInput_KeyBlocked(key)) || start) {
 				if (key >= 0)
 					XwInput_SuppressKey(key);
 				menu.page = XW_SETTINGS_GAME;

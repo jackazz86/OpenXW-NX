@@ -12,8 +12,15 @@
 #include "xw_runtime/runtime/presentation.h"
 #include "xw_runtime/snapshot/render_snapshot.h"
 #include "xw_runtime/storage/storage.h"
+#ifdef __SWITCH__
+#include "xw/frontend/shipext.h"
+#endif
 #include <aeron/log.h>
 #include <stdio.h>
+
+#ifdef __SWITCH__
+extern void AeronSwitch_TextInput(int enable);
+#endif
 
 static uint64_t XwApplication_PresentationIntervalUs(void) {
 	double rate = Aeron_PresentationRate();
@@ -34,6 +41,16 @@ static int XwApplication_FrameLoop(void) {
 			XwPresentation_MapHostPointer(&resized_input);
 			input = &resized_input;
 		}
+#ifdef __SWITCH__
+		{
+			static int text_on;
+			int want = XwInput_TextEntryActive();
+			if (want != text_on) {
+				text_on = want;
+				AeronSwitch_TextInput(want);
+			}
+		}
+#endif
 		int menu_opened = XwSettingsMenu_BeginFrame(input);
 		int menu_open = XwSettingsMenu_Open();
 		if (input && input->has_focus) {
@@ -143,6 +160,10 @@ int XwApplication_Run(const XwLaunchOptions* options) {
 		exit_code = XwPort_GetExitCode();
 		goto cleanup;
 	}
+#ifdef __SWITCH__
+	if (XwStorage_Probe(AERON_VFS_ROOT_USER, "JACK.PLT") == 0)
+		shipext_Revive_Pilot("JACK.PLT", SHIPEXT_CREATE_PILOT);
+#endif
 	if (!XwSettingsMenu_Init(&ui, error, sizeof error)) {
 		Aeron_LogError("xw.settings", "%s", error);
 		goto cleanup;

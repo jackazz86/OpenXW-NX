@@ -1,4 +1,5 @@
 #include "xw/frontend/mainmenu.h"
+#include <aeron/log.h>
 
 #include "xw/landru_config.h"
 
@@ -203,6 +204,11 @@ XwShellSceneResult mainmenu_Main_Menu(struct XwShellContext* shell) {
 			g_MainMenuPilotData.tour_status[tourIndex] <= SHIPEXT_TOUR_STATUS_ACTIVE)
 			newTourAvailable = 1;
 	}
+	Aeron_LogInfo("xw.tour", "mainmenu: current_tour=%d status=%d available=%d continue=%d new=%d",
+				  (int)g_MainMenuPilotData.current_tour,
+				  (int)g_MainMenuPilotData.tour_status[g_MainMenuPilotData.current_tour],
+				  (int)shipext_IsTourAvailable(g_MainMenuPilotData.current_tour), (int)continueTourAvailable,
+				  (int)newTourAvailable);
 	if (continueTourAvailable && newTourAvailable) {
 		xrect_Set_Rect(&frame, MAINMENU_TOUR_LEFT, MAINMENU_TOUR_TOP, MAINMENU_TOUR_RIGHT,
 					   MAINMENU_TOUR_BOTTOM);

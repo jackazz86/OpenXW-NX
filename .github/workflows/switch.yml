@@ -1,0 +1,107 @@
+name: Switch build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  openxw:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    container: devkitpro/devkita64:20260219
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Packages
+        run: |
+          set -e
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential cmake ninja-build git ca-certificates xz-utils pkg-config python3 patchelf libxml2-dev imagemagick
+          dkp-pacman -Sy --noconfirm switch-ffmpeg switch-zstd switch-zlib switch-bzip2 switch-liblzma || true
+      - name: NroForge SDK (downloaded from its own repository)
+        run: |
+          set -e
+          git clone https://github.com/BennettNotFound/NroForge.git /opt/nroforge
+          git -C /opt/nroforge checkout e41f2e68b212737da81ddc97fe5c7b881bb125e8
+          mkdir -p /opt/nxsdk
+          cat /opt/nroforge/vendor/sdk/nroforge-sdk.0*.part | tar -xJ -C /opt/nxsdk
+          echo "NROFORGE_SDK=/opt/nxsdk/NS-Toolchain-Runner-Minimal-20261015" >> "$GITHUB_ENV"
+      - name: Host SDL3 (console-only, for shadercross)
+        run: |
+          set -e
+          git clone --branch release-3.4.14 --depth 1 https://github.com/libsdl-org/SDL.git /opt/SDL
+          cmake -S /opt/SDL -B /opt/build/sdl -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/host -DSDL_UNIX_CONSOLE_BUILD=ON -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TESTS=OFF -DSDL_INSTALL_DOCS=OFF
+          cmake --build /opt/build/sdl && cmake --install /opt/build/sdl
+      - name: Host shader tools
+        run: |
+          set -e
+          git clone https://github.com/libsdl-org/SDL_shadercross.git /opt/shadercross
+          git -C /opt/shadercross checkout 6b06e55c7c5d7e7a09a8a14f76e866dcfad5ab99
+          git -C /opt/shadercross apply $GITHUB_WORKSPACE/packaging/common/shadercross-fsr3.patch
+          git -C /opt/shadercross submodule update --init --depth 1 external/SPIRV-Cross
+          D=/opt/shadercross/external/DirectXShaderCompiler-binaries/linux
+          mkdir -p $D
+          curl -sSL -o /tmp/dxc.tgz https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2502/linux_dxc_2025_02_20.x86_64.tar.gz
+          echo "e0580d90dbf6053a783ddd8d5153285f0606e5deaad17a7a6452f03acdf88c71  /tmp/dxc.tgz" | sha256sum -c -
+          tar -xzf /tmp/dxc.tgz -C $D
+          cmake -S /opt/shadercross/external/SPIRV-Cross -B /opt/build/spirv-cross -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/host -DSPIRV_CROSS_CLI=OFF -DSPIRV_CROSS_ENABLE_TESTS=OFF -DSPIRV_CROSS_SHARED=ON -DSPIRV_CROSS_STATIC=OFF
+          cmake --build /opt/build/spirv-cross && cmake --install /opt/build/spirv-cross
+          cmake -S /opt/shadercross -B /opt/build/shadercross -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/host -DCMAKE_PREFIX_PATH=/opt/host -DDirectXShaderCompiler_ROOT=/opt/shadercross/external/DirectXShaderCompiler-binaries -DSDLSHADERCROSS_CLI=ON -DSDLSHADERCROSS_DXC=ON -DSDLSHADERCROSS_INSTALL=ON -DSDLSHADERCROSS_INSTALL_RUNTIME=OFF -DSDLSHADERCROSS_SHARED=ON -DSDLSHADERCROSS_STATIC=OFF -DSDLSHADERCROSS_SPIRVCROSS_SHARED=ON -DSDLSHADERCROSS_VENDORED=OFF
+          cmake --build /opt/build/shadercross && cmake --install /opt/build/shadercross
+          cp $D/lib/libdxcompiler.so $D/lib/libdxil.so /opt/host/lib/
+      - name: Host FSR3 shader generator
+        run: |
+          set -e
+          export LD_LIBRARY_PATH=/opt/host/lib
+          cmake -S $GITHUB_WORKSPACE/aeron -B /opt/build/shadergen -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/host -DAERON_HOST_TOOLS_ONLY=ON -DAERON_BUILD_TOOLS=OFF
+          cmake --build /opt/build/shadergen
+          cp /opt/build/shadergen/aeron_fsr3_shadergen /opt/host/bin/ || find /opt/build/shadergen -name aeron_fsr3_shadergen -exec cp {} /opt/host/bin/ \;
+      - name: Switch cross build
+        run: |
+          set -e
+          export LD_LIBRARY_PATH=/opt/host/lib
+          export PKG_CONFIG_PATH=/opt/devkitpro/portlibs/switch/lib/pkgconfig
+          cmake -S $GITHUB_WORKSPACE -B /opt/build/xw -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE=/opt/devkitpro/cmake/Switch.cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSDL3_DIR=$GITHUB_WORKSPACE/nx/cmake/SDL3 \
+            -DAERON_SHADERCROSS_EXECUTABLE=/opt/host/bin/shadercross \
+            -DAERON_FSR3_SHADERGEN_EXECUTABLE=/opt/host/bin/aeron_fsr3_shadergen \
+            -DIMUSE_ENABLE_FLUIDSYNTH=OFF -DIMUSE_ENABLE_NUKED_SC55=OFF -DXW_BUILD_TOOLS=OFF
+          cmake --build /opt/build/xw --target xw -j4 -- -k 0 2>&1 | tee /opt/build/xw.log | tail -150
+          test ${PIPESTATUS[0]} -eq 0
+      - name: Package NRO
+        run: |
+          set -e
+          export PATH=/opt/devkitpro/tools/bin:$PATH
+          cmake --build /opt/build/xw --target xw_resources || true
+          cmake --install /opt/build/xw --component Runtime --prefix /opt/stage
+          mkdir -p /opt/out/switch/openxw
+          cp -r /opt/stage/resources /opt/stage/shaders /opt/out/switch/openxw/
+          # Optional icon, fetched at build time and never stored in this repository.
+          ICON=""
+          if curl -fsSL -o /tmp/icon.png https://cdn2.steamgriddb.com/icon/a8fbffd8d70c8032cda8841f24f13d7f.png \
+             && convert /tmp/icon.png -resize 256x256 -background black -flatten /tmp/icon.jpg; then
+            ICON="--icon=/tmp/icon.jpg"
+          fi
+          nacptool --create "OpenXW" "OpenXW port" "0.1" /opt/build/openxw.nacp
+          elf2nro /opt/build/xw/OpenXW.elf /opt/out/switch/openxw/openxw.nro --nacp=/opt/build/openxw.nacp $ICON
+          ls -la /opt/out/switch/openxw
+          du -sh /opt/out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openxw-switch
+          path: /opt/out
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: openxw-build-log
+          path: |
+            /opt/build/xw.log
+            /opt/build/xw/CMakeFiles/CMakeError.log
+          retention-days: 1
+          if-no-files-found: ignore

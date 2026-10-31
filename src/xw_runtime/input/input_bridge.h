@@ -15,6 +15,7 @@ void XwInput_Shutdown(void);
 XwKeyboardRoute XwInput_ReconcileKeyboard(void);
 bool XwInput_GameplayActive(void);
 bool XwInput_SettingsShortcutAllowed(void);
+bool XwInput_TextEntryActive(void);
 bool XwInput_RendererShortcutAllowed(void);
 void XwInput_ClearCommands(void);
 void XwInput_FlushRawKeyboard(void);

@@ -206,28 +206,27 @@ input:
   controllers: []
   gamepad_defaults:
     axes:
-      yaw: {source: leftx, invert: false, deadzone: 0.08}
-      pitch: {source: lefty, invert: false, deadzone: 0.08}
-      roll: {source: rightx, invert: false, deadzone: 0.08}
-      throttle: {source: none, invert: false}
+      yaw: {source: rightx, invert: false, deadzone: 0.1}
+      pitch: {source: righty, invert: true, deadzone: 0.1}
+      roll: {source: leftx, invert: false, deadzone: 0.1}
+      throttle: {source: lefty, invert: false}
     buttons:
-      fire_weapon: [south, {axis: righttrigger, direction: positive, threshold: 0.5}]
-      target_roll_modifier: [east, {axis: lefttrigger, direction: positive, threshold: 0.5}]
+      fire_weapon: [{axis: righttrigger, direction: positive, threshold: 0.5}]
+      target_roll_modifier: [{axis: lefttrigger, direction: positive, threshold: 0.5}]
+      auto_target: south
+      target_next: east
       target_nearest_fighter: north
-      target_next: west
-      target_my_attacker: leftshoulder
+      cycle_weapon_group: west
       view_toggle_cockpit: rightshoulder
-      throttle_full: dpadup
-      throttle_down: dpaddown
-      match_speed: dpadright
-      target_clear: dpadleft
-      hyperspace: leftstick
-      pause: start
-      escape: back
-      view_forward: rightstick
+      hyperspace: dpadleft
+      identify: dpadup
+      view_external: dpadright
+      cycle_shield_mode: dpaddown
+      cycle_cannon_recharge_rate: rightstick
+      cycle_shield_recharge_rate: leftstick
 presentation:
   vsync_divisor: 1
-  hdr_output: true
+  hdr_output: false
   sdr_gamma: auto
   paper_white_nits: auto
 game:

@@ -234,12 +234,8 @@ XwSetupResult XwSetup_Run(const XwLaunchOptions* options, XwAppUi* ui, char* err
 	const XwSettings* settings = XwConfig_Settings();
 	bool ok93 = OpenSaved(&installations.xw93, XW_GAME_VERSION_93,
 						  options->xw93_data ? options->xw93_data : settings->xw93_data, error, capacity);
-	if (!ok93 && options->xw93_data)
-		return XW_SETUP_ERROR;
 	bool ok94 = OpenSaved(&installations.xw94, XW_GAME_VERSION_94,
 						  options->xw94_data ? options->xw94_data : settings->xw94_data, error, capacity);
-	if (!ok94 && options->xw94_data)
-		return XW_SETUP_ERROR;
 	bool ok98 = OpenSaved(&installations.xw98, XW_GAME_VERSION_98,
 						  options->xw98_data ? options->xw98_data : settings->xw98_data, error, capacity);
 	if (!ok98 && options->xw98_data)
@@ -250,7 +246,7 @@ XwSetupResult XwSetup_Run(const XwLaunchOptions* options, XwAppUi* ui, char* err
 		!XwSetup_CommitSettings(&selected, 0, error, capacity))
 		return XW_SETUP_ERROR;
 	bool valid_selection = XwSetup_ValidateSelection(&installations, settings, error, capacity);
-	bool needs_setup = options->setup || !ok93 || !ok94 || !ok98 || !valid_selection;
+	bool needs_setup = options->setup || !ok98 || !valid_selection;
 	if (needs_setup) {
 		if (!ui) {
 			return XW_SETUP_ERROR;

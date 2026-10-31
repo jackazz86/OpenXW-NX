@@ -688,9 +688,22 @@ void user_inputforplane(void) {
 		case '+':
 		case '=': {
 			uint16_t engine;
+			uint16_t now = g_playerFlightState.craft->engineThrottle[0];
+			uint16_t target;
+			if (now < XW_CRAFT_THROTTLE_FULL / 3 - 512) {
+				target = XW_CRAFT_THROTTLE_FULL / 3;
+				g_msgArgTable[0] = XW_MSG_THROTTLE_ONE_THIRD_POWER;
+			} else if (now < XW_CRAFT_THROTTLE_FULL * 2 / 3 - 512) {
+				target = XW_CRAFT_THROTTLE_FULL * 2 / 3;
+				g_msgArgTable[0] = XW_MSG_THROTTLE_TWO_THIRDS_POWER;
+			} else {
+				target = XW_CRAFT_THROTTLE_FULL;
+				g_msgArgTable[0] = XW_MSG_THROTTLE_FULL_POWER;
+			}
 			for (engine = 0; engine < g_playerFlightState.engineCount; ++engine)
-				user_increasepower(engine, USER_THROTTLE_STEP);
-			fsfx_triggersfx(FSFX_CONTROL_ACKNOWLEDGE_SLOT, FSFX_UNPOSITIONED_OBJECT);
+				g_playerFlightState.craft->engineThrottle[engine] = target;
+			fsfx_triggersfx(FSFX_THROTTLE_SETTING_SLOT, FSFX_UNPOSITIONED_OBJECT);
+			msg_messageprintf(XW_MSG_ENGINE_THROTTLE_SETTING);
 			break;
 		}
 		case ']': {
@@ -704,9 +717,22 @@ void user_inputforplane(void) {
 		}
 		case '-': {
 			uint16_t engine;
+			uint16_t now = g_playerFlightState.craft->engineThrottle[0];
+			uint16_t target;
+			if (now > XW_CRAFT_THROTTLE_FULL * 2 / 3 + 512) {
+				target = XW_CRAFT_THROTTLE_FULL * 2 / 3;
+				g_msgArgTable[0] = XW_MSG_THROTTLE_TWO_THIRDS_POWER;
+			} else if (now > XW_CRAFT_THROTTLE_FULL / 3 + 512) {
+				target = XW_CRAFT_THROTTLE_FULL / 3;
+				g_msgArgTable[0] = XW_MSG_THROTTLE_ONE_THIRD_POWER;
+			} else {
+				target = 0;
+				g_msgArgTable[0] = XW_MSG_THROTTLE_NO_POWER;
+			}
 			for (engine = 0; engine < g_playerFlightState.engineCount; ++engine)
-				user_decreasepower(engine, USER_THROTTLE_STEP);
-			fsfx_triggersfx(FSFX_CONTROL_ACKNOWLEDGE_SLOT, FSFX_UNPOSITIONED_OBJECT);
+				g_playerFlightState.craft->engineThrottle[engine] = target;
+			fsfx_triggersfx(FSFX_THROTTLE_SETTING_SLOT, FSFX_UNPOSITIONED_OBJECT);
+			msg_messageprintf(XW_MSG_ENGINE_THROTTLE_SETTING);
 			break;
 		}
 		case '[': {

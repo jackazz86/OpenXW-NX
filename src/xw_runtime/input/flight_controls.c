@@ -12,6 +12,9 @@
 #include "xw_runtime/input/mouse_flight.h"
 #include "xw_runtime/runtime/port.h"
 #include "xw_runtime/timing/player_timing.h"
+#include "xw_runtime/timing/host_clock.h"
+#include <aeron/aeron.h>
+#include <math.h>
 
 static struct {
 	bool valid;
@@ -72,6 +75,33 @@ void XwFlightControls_SampleThrottle(XwFlightInput* record) {
 	uint32_t generation;
 	record->flags = 0;
 	record->throttle = 0;
+#ifdef __SWITCH__
+	{
+		/* A stick assigned to the throttle axis in the controller options acts as a
+		 * ramp: hold it and the power climbs or falls, release and it stays. */
+		float axis = 0.0f;
+		if (LocalThrottleEligible() && g_playerFlightState.craft && XwControllerMapping_ThrottleRamp(&axis)) {
+			static uint64_t last_us;
+			uint64_t now_us = XwTime_GetElapsedUs();
+			float dt = last_us ? (float)(now_us - last_us) / 1000000.0f : 0.0f;
+			last_us = now_us;
+			if (dt > 0.1f)
+				dt = 0.1f;
+			const float deadzone = 0.25f, per_second = 0.4f;
+			if (fabsf(axis) > deadzone && dt > 0.0f) {
+				float k = (fabsf(axis) - deadzone) / (1.0f - deadzone);
+				int current = g_playerFlightState.craft->engineThrottle[0];
+				int target = current + (int)lroundf((axis < 0 ? k : -k) * per_second * dt * 65535.0f);
+				target = target < 0 ? 0 : target > 65535 ? 65535 : target;
+				if (target != current) {
+					record->flags = XW_INPUT_THROTTLE_PRESENT;
+					record->throttle = (uint16_t)target;
+				}
+			}
+			return;
+		}
+	}
+#endif
 	if (!LocalThrottleEligible() || !XwControllerMapping_ThrottleSample(&position, &generation)) {
 		XwFlightControls_ResetThrottle();
 		return;

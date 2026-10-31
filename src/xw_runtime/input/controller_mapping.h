@@ -18,6 +18,7 @@ const AeronControllerSnapshot* XwControllerMapping_Resolve(const XwControllerMod
 uint32_t XwControllerMapping_AnalogInstance(const char* guid);
 uint16_t XwControllerMapping_ThrottlePosition(int16_t raw, AeronControllerKind kind, int source, bool invert);
 bool XwControllerMapping_ThrottleSample(uint16_t* position, uint32_t* generation);
+bool XwControllerMapping_ThrottleRamp(float* axis);
 int XwControllerMapping_Present(void);
 int XwControllerMapping_MenuAxis(XwInputAxis axis);
 uint8_t XwControllerMapping_MenuButtons(void);
